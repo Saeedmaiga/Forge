@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { AppError } from './lib/errors.js';
 import { prisma } from './lib/prisma.js';
+import { createUser } from './services/user.service.js';
 
 
 export async function checkDatabaseConnection() {
@@ -73,13 +74,33 @@ export function buildServer(): FastifyInstance {
     });
   });
 
-  server.get('/health', async () => {
-    return { status: 'ok' };
+  server.get('/health', async (req, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return { status: 'ok' };
+    } catch {
+      return reply.status(503).send({
+        status: 'error',
+        message: 'Database unavailable',
+      });
+    }
   });
+
 
   server.get('/boom', async () => {
     throw new Error('boom');
   });
 
+
+  server.post('/register', async(req,reply) =>{
+    const body = req.body as {
+      email: string;
+      password: string;
+      name?: string | null;
+    }
+
+    const user = await createUser(body);
+    return reply.status(201).send(user);
+  })
   return server;
 }
