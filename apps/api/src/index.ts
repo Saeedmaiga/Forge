@@ -1,10 +1,11 @@
-import { buildServer } from './server.js';
+import { buildServer, checkDatabaseConnection } from './server.js';
 import { env } from './config/env.js';
 const server = buildServer();
 
 
 const start = async () => {
     try{
+    await checkDatabaseConnection();
     await server.listen ({
         port: Number(env.PORT), 
         host: '0.0.0.0'});

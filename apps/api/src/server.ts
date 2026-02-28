@@ -1,7 +1,27 @@
 import crypto from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { AppError } from './lib/errors.js';
+import { prisma } from './lib/prisma.js';
 
+
+export async function checkDatabaseConnection() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('Database connected successfully');
+  } catch (err) {
+    console.error('Failed to connect to database');
+    process.exit(1); // Crash immediately
+  }
+}
+
+async function gracefulShutdown() {
+  console.log('Shutting down gracefully...');
+  await prisma.$disconnect();
+  process.exit(0);
+}
+
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
 
 export function buildServer(): FastifyInstance {
   const server = Fastify({
