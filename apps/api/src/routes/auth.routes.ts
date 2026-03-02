@@ -1,0 +1,28 @@
+
+import type { FastifyInstance } from 'fastify';
+import { createUser, loginUser } from '../services/user.service.js';
+import { AppError } from '../lib/errors.js';
+
+export async function authRoutes(server: FastifyInstance) {
+    server.post('/register', async (req, reply) => {
+      const body = req.body as {
+        email: string;
+        password: string;
+        name?: string | null;
+      };
+      if (!body.email || !body.password) {
+        throw new AppError('VALIDATION_ERROR', 'Email and password are required', 400);
+      }
+      const user = await createUser(body);
+      return reply.status(201).send(user);
+    });
+  
+    server.post('/login', async (req, reply) => {
+      const body = req.body as {
+        email: string;
+        password: string;
+      };
+      const tokens = await loginUser(body.email, body.password);
+      return reply.status(200).send(tokens);
+    });
+  }

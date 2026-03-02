@@ -1,6 +1,8 @@
 import { prisma } from '../lib/prisma.js';
 import { hashPassword } from '../lib/hash.js';
 import { AppError } from '../lib/errors.js';
+import { verifyPassword } from '../lib/hash.js';
+import { generateAccessToken, generateRefreshToken } from '../lib/token.js';
 
 interface CreateUserInput {
   email: string;
@@ -46,3 +48,32 @@ export async function createUser(input: CreateUserInput) {
     throw err;
   }
 }
+
+export async function loginUser(email: string, password: string) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+  
+    if (!user) {
+      throw new AppError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+    }
+  
+    const valid = await verifyPassword(password, user.passwordHash);
+  
+    if (!valid) {
+      throw new AppError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+    }
+  
+    const payload = {
+      userId: user.id,
+      role: user.role,
+    };
+  
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+  
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }

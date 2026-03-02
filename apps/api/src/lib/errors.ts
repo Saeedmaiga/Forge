@@ -4,7 +4,8 @@ export type AppErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'INTERNAL_ERROR'
-  | 'EMAIL_ALREADY_EXISTS';
+  | 'EMAIL_ALREADY_EXISTS'
+  | 'INVALID_CREDENTIALS';
 
 export class AppError extends Error {
   public readonly code: AppErrorCode;

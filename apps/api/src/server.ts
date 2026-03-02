@@ -2,7 +2,10 @@ import crypto from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { AppError } from './lib/errors.js';
 import { prisma } from './lib/prisma.js';
-import { createUser } from './services/user.service.js';
+import { authRoutes } from './routes/auth.routes.js';
+import { userRoutes } from './routes/user.routes.js';
+import { adminRoutes } from './routes/admin.routes.js';
+
 
 
 export async function checkDatabaseConnection() {
@@ -15,14 +18,6 @@ export async function checkDatabaseConnection() {
   }
 }
 
-async function gracefulShutdown() {
-  console.log('Shutting down gracefully...');
-  await prisma.$disconnect();
-  process.exit(0);
-}
-
-process.on('SIGINT', gracefulShutdown);
-process.on('SIGTERM', gracefulShutdown);
 
 export function buildServer(): FastifyInstance {
   const server = Fastify({
@@ -91,16 +86,11 @@ export function buildServer(): FastifyInstance {
     throw new Error('boom');
   });
 
+  server.decorateRequest('user', null);
 
-  server.post('/register', async(req,reply) =>{
-    const body = req.body as {
-      email: string;
-      password: string;
-      name?: string | null;
-    }
+  server.register(authRoutes, { prefix: '/auth' });
+  server.register(userRoutes, { prefix: '/user' });
+  server.register(adminRoutes, { prefix: '/admin' });
 
-    const user = await createUser(body);
-    return reply.status(201).send(user);
-  })
   return server;
 }

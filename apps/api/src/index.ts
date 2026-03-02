@@ -1,6 +1,16 @@
 import { buildServer, checkDatabaseConnection } from './server.js';
 import { env } from './config/env.js';
+import { prisma } from './lib/prisma.js';
 const server = buildServer();
+
+async function gracefulShutdown() {
+    console.log('Shutting down gracefully...');
+    await prisma.$disconnect();
+    process.exit(0);
+  }
+
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
 
 
 const start = async () => {
