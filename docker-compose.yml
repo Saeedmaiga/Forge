@@ -1,0 +1,18 @@
+version: "3.9" 
+
+services:   # this defines the containers your project needs to run 
+  postgres:
+    image: postgres:16
+    container_name: forge-postgres
+    restart: always  #this is to restart the container if it crashes
+    environment:
+      POSTGRES_USER: forge   #this is the username for the database
+      POSTGRES_PASSWORD: forgepass  #this is the password for the database
+      POSTGRES_DB: forge_db     #this is the database name
+    ports:
+      - "5432:5432" #left side is your machine, right side is the container.
+    volumes: #this is to persist the database data even if the container is deleted
+      - forge_pgdata:/var/lib/postgresql/data
+
+volumes:
+  forge_pgdata:
