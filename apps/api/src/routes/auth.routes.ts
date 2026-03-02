@@ -1,6 +1,6 @@
 
 import type { FastifyInstance } from 'fastify';
-import { createUser, loginUser } from '../services/user.service.js';
+import { createUser, loginUser, refreshUserToken } from '../services/user.service.js';
 import { AppError } from '../lib/errors.js';
 
 export async function authRoutes(server: FastifyInstance) {
@@ -23,6 +23,15 @@ export async function authRoutes(server: FastifyInstance) {
         password: string;
       };
       const tokens = await loginUser(body.email, body.password);
+      return reply.status(200).send(tokens);
+    });
+
+    server.post('/refresh', async (req, reply) => {
+      const body = req.body as { refreshToken: string };
+      if (!body.refreshToken) {
+        throw new AppError('VALIDATION_ERROR', 'Refresh token is required', 400);
+      }
+      const tokens = await refreshUserToken(body.refreshToken);
       return reply.status(200).send(tokens);
     });
   }

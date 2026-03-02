@@ -1,8 +1,9 @@
 import { prisma } from '../lib/prisma.js';
-import { hashPassword } from '../lib/hash.js';
 import { AppError } from '../lib/errors.js';
-import { verifyPassword } from '../lib/hash.js';
 import { generateAccessToken, generateRefreshToken } from '../lib/token.js';
+import { hashPassword, verifyPassword, hashToken, verifyTokenHash } from '../lib/hash.js';
+
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — must match JWT_REFRESH_EXPIRES
 
 interface CreateUserInput {
   email: string;
@@ -71,9 +72,56 @@ export async function loginUser(email: string, password: string) {
   
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
-  
+
+    const tokenHash = await hashToken(refreshToken);
+
+    await prisma.refreshToken.create({
+      data: {
+      userId: user.id,
+      tokenHash,
+    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    },
+    });
+
     return {
       accessToken,
       refreshToken,
     };
+}
+
+export async function refreshUserToken(token: string) {
+  const storedTokens = await prisma.refreshToken.findMany({
+    where: { expiresAt: { gt: new Date() } },
+    include: { user: true },
+  });
+
+  let matchedToken = null;
+  for (const stored of storedTokens) {
+    const valid = await verifyTokenHash(token, stored.tokenHash);
+    if (valid) {
+      matchedToken = stored;
+      break;
+    }
   }
+
+  if (!matchedToken) {
+    throw new AppError('UNAUTHORIZED', 'Invalid or expired refresh token', 401);
+  }
+
+  await prisma.refreshToken.delete({ where: { id: matchedToken.id } });
+
+  const payload = { userId: matchedToken.user.id, role: matchedToken.user.role };
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+  const tokenHash = await hashToken(refreshToken);
+
+  await prisma.refreshToken.create({
+    data: {
+      userId: matchedToken.user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    },
+  });
+
+  return { accessToken, refreshToken };
+}
