@@ -14,12 +14,21 @@ export async function createDocument(
   });
 }
 
-export async function getUserDocuments(userId: string) {
-  return prisma.document.findMany({
-    where: { ownerId: userId },
-    orderBy: { createdAt: 'desc' },
-  });
-}
+export async function getUserDocuments(
+    userId: string,
+    options: { page: number; limit: number }
+  ) {
+    const { page, limit } = options;
+  
+    const skip = (page - 1) * limit;
+  
+    return prisma.document.findMany({
+      where: { ownerId: userId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    });
+  }
 
 export async function deleteDocument(userId: string, documentId: string) {
   const doc = await prisma.document.findUnique({

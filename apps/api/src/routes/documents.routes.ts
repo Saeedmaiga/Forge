@@ -17,8 +17,11 @@ export default async function documentRoutes(server: any) {
   server.get(
     '/documents',
     { preHandler: authenticate },
-    async (req: any) => {
-      return getUserDocuments(req.user.userId);
+    async (req: any, reply: any) => {
+        const page = Math.max(1, Number(req.query?.page) || 1);
+        const limit = Math.min(100, Math.max(1, Number(req.query?.limit) || 10));
+        const docs = await getUserDocuments(req.user.userId, { page, limit });
+        return reply.send(docs);
     },
   );
 

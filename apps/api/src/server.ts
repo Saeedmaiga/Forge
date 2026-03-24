@@ -28,6 +28,10 @@ export function buildServer(): FastifyInstance {
     },
     genReqId: () => crypto.randomUUID(),
   });
+  server.register(rateLimit, {
+    max: 100, // max number of requests
+    timeWindow: '1m',
+  });
 
  
 

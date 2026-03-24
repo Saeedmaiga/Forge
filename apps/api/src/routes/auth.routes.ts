@@ -4,7 +4,14 @@ import { createUser, loginUser, refreshUserToken } from '../services/user.servic
 import { AppError } from '../lib/errors.js';
 
 export async function authRoutes(server: FastifyInstance) {
-    server.post('/register', async (req, reply) => {
+    server.post('/register',{
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+        },
+      },
+    }, async (req, reply) => {
       const body = req.body as {
         email: string;
         password: string;
@@ -17,14 +24,24 @@ export async function authRoutes(server: FastifyInstance) {
       return reply.status(201).send(user);
     });
   
-    server.post('/login', async (req, reply) => {
-      const body = req.body as {
-        email: string;
-        password: string;
-      };
-      const tokens = await loginUser(body.email, body.password);
-      return reply.status(200).send(tokens);
-    });
+    server.post( '/login', {
+        config: {
+          rateLimit: {
+            max: 5,
+            timeWindow: '1 minute',
+          },
+        },
+      },
+      async (req, reply) => {
+        const body = req.body as {
+          email: string;
+          password: string;
+        };
+    
+        const tokens = await loginUser(body.email, body.password);
+        return reply.status(200).send(tokens);
+      },
+    );
 
     server.post('/refresh', async (req, reply) => {
       const body = req.body as { refreshToken: string };
