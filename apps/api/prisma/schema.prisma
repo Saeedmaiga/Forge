@@ -28,6 +28,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   refreshTokens RefreshToken[]
+  documents    Document[] 
 }
 
 model RefreshToken {
@@ -40,4 +41,15 @@ model RefreshToken {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id])
 }

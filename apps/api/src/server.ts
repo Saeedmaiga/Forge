@@ -5,7 +5,9 @@ import { prisma } from './lib/prisma.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { userRoutes } from './routes/user.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
-
+import documentRoutes from './routes/documents.routes.js';
+import { ZodError } from 'zod';
+import rateLimit from '@fastify/rate-limit';
 
 
 export async function checkDatabaseConnection() {
@@ -27,6 +29,8 @@ export function buildServer(): FastifyInstance {
     genReqId: () => crypto.randomUUID(),
   });
 
+ 
+
   server.addHook('onRequest', async (req) => {
     // store start time on the request
     (req as any).startTime = Date.now();
@@ -45,6 +49,18 @@ export function buildServer(): FastifyInstance {
 
   server.setErrorHandler((err, req, reply) => {
     const requestId = req.id;
+    if (err instanceof ZodError) {
+      req.log.warn({ err }, 'validation:error');
+      return reply.status(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request body',
+          details: err.flatten(),
+          requestId,
+        },
+      });
+    }
+
   
     // Known AppError (our own)
     if (err instanceof AppError) {
@@ -91,6 +107,7 @@ export function buildServer(): FastifyInstance {
   server.register(authRoutes, { prefix: '/auth' });
   server.register(userRoutes, { prefix: '/user' });
   server.register(adminRoutes, { prefix: '/admin' });
+  server.register(documentRoutes, { prefix: '/documents' });
 
   return server;
 }
