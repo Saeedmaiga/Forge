@@ -41,9 +41,14 @@ export async function createUser(input: CreateUserInput) {
       role: user.role,
       createdAt: user.createdAt,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Defensive check in case of race condition
-    if (err.code === 'P2002') {
+    if (
+      err !== null &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code?: string }).code === 'P2002'
+    ) {
       throw new AppError('EMAIL_ALREADY_EXISTS', 'Email already registered', 409);
     }
     throw err;

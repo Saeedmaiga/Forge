@@ -7,42 +7,38 @@ import { userRoutes } from './routes/user.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
 import documentRoutes from './routes/documents.routes.js';
 import { ZodError } from 'zod';
-import rateLimit from '@fastify/rate-limit';
-
 
 export async function checkDatabaseConnection() {
   try {
     await prisma.$queryRaw`SELECT 1`;
     console.log('Database connected successfully');
   } catch (err) {
-    console.error('Failed to connect to database');
-    process.exit(1); // Crash immediately
+    console.error('Failed to connect to database', err);
+    process.exit(1);
   }
 }
 
-
 export function buildServer(): FastifyInstance {
   const server = Fastify({
-    logger: {
-      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-    },
+    logger:
+      process.env.VITEST === 'true'
+        ? false
+        : {
+            level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+          },
     genReqId: () => crypto.randomUUID(),
   });
-  server.register(rateLimit, {
-    max: 100, // max number of requests
-    timeWindow: '1m',
-  });
 
- 
-
+  // Async hooks are required: sync onRequest/onResponse causes server.inject() to hang (Fastify 5 + light-my-request).
   server.addHook('onRequest', async (req) => {
-    // store start time on the request
-    (req as any).startTime = Date.now();
+    await Promise.resolve();
+    req.startTime = Date.now();
     req.log.info({ method: req.method, url: req.url }, 'request:start');
   });
 
   server.addHook('onResponse', async (req, reply) => {
-    const start = (req as any).startTime ?? Date.now();
+    await Promise.resolve();
+    const start = req.startTime ?? Date.now();
     const durationMs = Date.now() - start;
 
     req.log.info(
@@ -65,8 +61,6 @@ export function buildServer(): FastifyInstance {
       });
     }
 
-  
-    // Known AppError (our own)
     if (err instanceof AppError) {
       req.log.warn({ err }, 'app:error');
       return reply.status(err.statusCode).send({
@@ -77,8 +71,7 @@ export function buildServer(): FastifyInstance {
         },
       });
     }
-  
-    // Unknown error (unexpected)
+
     req.log.error({ err }, 'unhandled:error');
     return reply.status(500).send({
       error: {
@@ -89,7 +82,7 @@ export function buildServer(): FastifyInstance {
     });
   });
 
-  server.get('/health', async (req, reply) => {
+  server.get('/health', async (_req, reply) => {
     try {
       await prisma.$queryRaw`SELECT 1`;
       return { status: 'ok' };
@@ -101,12 +94,9 @@ export function buildServer(): FastifyInstance {
     }
   });
 
-
-  server.get('/boom', async () => {
+  server.get('/boom', () => {
     throw new Error('boom');
   });
-
-  server.decorateRequest('user', null);
 
   server.register(authRoutes, { prefix: '/auth' });
   server.register(userRoutes, { prefix: '/user' });

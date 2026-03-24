@@ -1,15 +1,25 @@
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { createDocument, getUserDocuments, deleteDocument } from '../services/document.service.js';
 import { authenticate } from '../lib/middleware.js';
 import { createDocumentSchema, documentIdParamsSchema } from '../lib/validators/document.validator.js';
+import { AppError } from '../lib/errors.js';
 
-export default async function documentRoutes(server: any) {
+function requireUserId(req: { user?: { userId: string } }): string {
+  const id = req.user?.userId;
+  if (id === undefined) {
+    throw new AppError('UNAUTHORIZED', 'Missing user', 401);
+  }
+  return id;
+}
+
+export default function documentRoutes(server: FastifyInstance) {
   server.post(
     '/documents',
     { preHandler: authenticate },
-    async (req: any, reply: any) => {
-        const body = createDocumentSchema.parse(req.body);
-
-        const doc = await createDocument(req.user.userId, body);
+    async (req, reply: FastifyReply) => {
+      const body = createDocumentSchema.parse(req.body);
+      const userId = requireUserId(req);
+      const doc = await createDocument(userId, body);
       return reply.status(201).send(doc);
     },
   );
@@ -17,20 +27,24 @@ export default async function documentRoutes(server: any) {
   server.get(
     '/documents',
     { preHandler: authenticate },
-    async (req: any, reply: any) => {
-        const page = Math.max(1, Number(req.query?.page) || 1);
-        const limit = Math.min(100, Math.max(1, Number(req.query?.limit) || 10));
-        const docs = await getUserDocuments(req.user.userId, { page, limit });
-        return reply.send(docs);
+    async (req, reply: FastifyReply) => {
+      const query = req.query as Record<string, string | undefined>;
+      const page = Math.max(1, Number(query.page) || 1);
+      const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+      const userId = requireUserId(req);
+      const docs = await getUserDocuments(userId, { page, limit });
+      return reply.send(docs);
     },
   );
 
   server.delete(
     '/documents/:id',
     { preHandler: authenticate },
-    async (req: any) => {
-        const params = documentIdParamsSchema.parse(req.params);
-      return deleteDocument(req.user.userId, params.id);
+    async (req, reply: FastifyReply) => {
+      const params = documentIdParamsSchema.parse(req.params);
+      const userId = requireUserId(req);
+      const result = await deleteDocument(userId, params.id);
+      return reply.send(result);
     },
   );
 }
